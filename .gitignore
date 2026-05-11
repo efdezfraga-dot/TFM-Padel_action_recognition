@@ -1,1 +1,21 @@
-.DS_Store
+# 1. Ignorar la carpeta 'code' que está en la raíz
+code/
+
+# 2. Ignorar la carpeta 'VIDEO_RGB' que está dentro de 'lrcnn'
+lrcnn/VIDEO_RGB/
+
+# 3. Ignorar carpetas autogeneradas por Python/Jupyter (muy recomendable)
+__pycache__/
+.ipynb_checkpoints/
+*.pkl
+
+# --- 4. REGLAS PARA MANTENER LA ESTRUCTURA DE 'data' ---
+
+# Ignorar todos los archivos dentro de lrcnn/data y sus subcarpetas
+lrcnn/data/**
+
+# (Excepción) No ignorar las carpetas en sí mismas
+!lrcnn/data/**/
+
+# (Excepción) No ignorar los archivos .gitkeep
+!lrcnn/data/**/.gitkeep

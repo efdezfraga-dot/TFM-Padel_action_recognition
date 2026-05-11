@@ -21,10 +21,11 @@ from sklearn.metrics import classification_report, confusion_matrix
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
+import tensorflow as tf 
 
 
 # --- RNN model --- #
-def lstm(num_features=2048, hidden_units=256, dense_units=256, reg=1e-1, dropout_rate=1e-1, seq_length=16, num_classes=6):
+def lstm(num_features=2048, hidden_units=256, dense_units=256, reg=1e-1, dropout_rate=1e-1, seq_length=16, num_classes=9):
 
     # hidden_units: dimension of cell
     # dense_units: number of neurons in fully connected layer above LSTM
@@ -62,7 +63,7 @@ def lstm(num_features=2048, hidden_units=256, dense_units=256, reg=1e-1, dropout
     model.add(TimeDistributed(Dense(num_classes, activation="softmax")))
 
     # average outputs
-    average_layer = Lambda(function=lambda x: K.mean(x, axis=1))
+    average_layer = Lambda(lambda x: tf.reduce_mean(x, axis=1))
     model.add(average_layer)
 
     # --- ONLY TAKE LAST LSTM OUTPUT --- #
@@ -81,10 +82,10 @@ if __name__ == "__main__":
     learning_rate= 1e-3 # 1e-4
     decay=0.0
 
-    hidden_units = 128
-    dense_units = 128
-    reg = 0.0           # L2 regularization
-    dropout_rate = 0.3  # dropout regularization
+    hidden_units = 512
+    dense_units = 512
+    reg = 1e-5           # L2 regularization
+    dropout_rate = 0.5  # dropout regularization
     batch_size = 128
     nb_epoch = 300 # 100
 
@@ -94,7 +95,7 @@ if __name__ == "__main__":
     saved_model = None  # None, or pass in weights file
     # saved_model = "data/checkpoints/lstm_weights.0026-0.239.hdf5"
 
-    num_classes = 6
+    num_classes = 9
     seq_length = 16    # essentially number of frames
 
 
@@ -113,20 +114,20 @@ if __name__ == "__main__":
                     seq_length=seq_length, num_classes=num_classes)
 
     # setup optimizer: ADAM algorithm
-    optimizer = Adam(lr=learning_rate, decay=decay)
+    optimizer = Adam(learning_rate=learning_rate)
 
     # metrics for judging performance of model
     metrics = ['categorical_accuracy'] # ['accuracy']  # if using 'top_k_categorical_accuracy', must specify k
 
     rnn_model.compile(loss='categorical_crossentropy', optimizer=optimizer,
-        metrics=metrics)
+        metrics=['categorical_accuracy'])
 
 
     # load saved weights
     # folder_path = 'experiments/base_model/base_model_dropout_rate_0.00e+00/checkpoints/'
-    folder_path = 'experiments/base_model/base_model_dropout_rate_3.00e-01/checkpoints/'
+    folder_path = 'experiments/base_model/checkpoints/'
 
-    saved_weights = os.path.join(folder_path, 'lstm_weights.0300-0.619.hdf5')
+    saved_weights = os.path.join(folder_path, 'lstm_weights.epoch_0300.keras')
     rnn_model.load_weights(saved_weights)
 
     # load and prepare test set
@@ -150,12 +151,22 @@ if __name__ == "__main__":
 
 
     # --- MISCLASSIFICATION ANALYSIS --- #
-    Y_pred_class = rnn_model.predict_classes(X_test)
+    Y_pred = rnn_model.predict(X_test)
+    Y_pred_class = np.argmax(Y_pred, axis=1)
     Y_test_class = np.argmax(Y_test, axis=1)
 
 
-    target_names = ['backhand', 'bvolley', 'forehand', 'fvolley', 
-                   'service', 'smash']
+    target_names = target_names = [
+    'bandeja', 
+    'derecha', 
+    'remate', 
+    'reves', 
+    'salidaD', 
+    'salidaR', 
+    'vibora', 
+    'voleaD', 
+    'voleaR'
+]
     print(classification_report(Y_test_class, Y_pred_class, target_names=target_names))
     conf_matrix = confusion_matrix(Y_test_class, Y_pred_class)
 

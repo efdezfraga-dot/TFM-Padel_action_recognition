@@ -1,15 +1,19 @@
 {
-    "dense_units": 128, 
-    "hidden_units": 128, 
-    "decay": 0.0, 
-    "learning_rate": 0.001, 
-    "dropout_rate": 0.3, 
-    "batch_size": 128, 
-    "reg": 0.0, 
-    "train_size": 0.8, 
-    "model_version": "lstm", 
-    "seq_length": 16, 
-    "saved_model": "None", 
-    "nb_epoch": 300, 
-    "num_classes": 6
+    "model_version": "lstm",
+    "range": [
+        0.001,
+        1e-07
+    ],
+    "saved_model": "None",
+    "learning_rate": 0.001,
+    "decay": 0.0,
+    "hidden_units": 32,
+    "dense_units": 32,
+    "reg": 0.0,
+    "dropout_rate": 0.3,
+    "batch_size": 128,
+    "nb_epoch": 300,
+    "train_size": 0.8,
+    "num_classes": 9,
+    "seq_length": 16
 }
