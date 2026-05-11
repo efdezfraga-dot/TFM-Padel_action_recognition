@@ -3,8 +3,10 @@ Train the LRCNN model. Parameters are set in params.json file in the
 relevant directory under "/experiments".
 """
 
+import tensorflow as tf 
 from keras.applications.inception_v3 import InceptionV3, preprocess_input
 from keras.callbacks import TensorBoard, ModelCheckpoint, CSVLogger
+from keras.optimizers.schedules import ExponentialDecay
 from keras.optimizers import Adam
 from keras.models import Model, Sequential, load_model
 from keras.layers import Input, LSTM, Dense, TimeDistributed, Lambda, Dropout
@@ -32,7 +34,7 @@ parser.add_argument('--model_dir', default='experiments/base_model',
 										help="Directory containing params.json")
 
 # --- RNN MODEL --- #
-def lstm(num_features=2048, hidden_units=256, dense_units=256, reg=1e-1, dropout_rate=1e-1, seq_length=16, num_classes=6):
+def lstm(num_features=2048, hidden_units=256, dense_units=256, reg=1e-1, dropout_rate=1e-1, seq_length=16, num_classes=9):
 		
 	# hidden_units: dimension of cell
 	# dense_units: number of neurons in fully connected layer above LSTM
@@ -61,7 +63,7 @@ def lstm(num_features=2048, hidden_units=256, dense_units=256, reg=1e-1, dropout
 	model.add(TimeDistributed(Dense(num_classes, activation="softmax")))
 	
 	# average outputs
-	average_layer = Lambda(function=lambda x: K.mean(x, axis=1))
+	average_layer = Lambda(lambda x: tf.reduce_mean(x, axis=1))
 	model.add(average_layer)
 	
 	# --- ONLY TAKE LAST LSTM OUTPUT --- #
@@ -76,7 +78,7 @@ def train(model_dir, cnn_model, saved_model=None,
 			learning_rate = 1e-5, decay=1e-6, 
 			train_size = 0.8, seq_length=16,
 			hidden_units=256, dense_units=256, reg=1e-1, dropout_rate=1e-1,
-			num_classes=6, batch_size=16, nb_epoch=100, 
+			num_classes=9, batch_size=16, nb_epoch=100, 
 			image_shape=None):
 
 
@@ -85,26 +87,33 @@ def train(model_dir, cnn_model, saved_model=None,
 	if not os.path.exists(checkpoints_dir):
 		os.makedirs(checkpoints_dir)
 
+		# PREPARE DATASET
+	dataset = DataSet(cnn_model, seq_length)
+	
+	# steps_per_epoch = number of batches in one epoch
+	steps_per_epoch = int((len(dataset.data) * train_size) // batch_size)
+
+		# Calculate save_freq based on steps_per_epoch (50 epochs)
+	save_freq = 50 * steps_per_epoch
+	
+
 	checkpointer = ModelCheckpoint(
-			filepath=os.path.join(checkpoints_dir, 'lstm_weights.{epoch:004d}-{val_loss:.3f}.hdf5'),
-			verbose=1, save_best_only=False, period=50)
+    filepath=os.path.join(checkpoints_dir, 'lstm_weights.epoch_{epoch:04d}.keras'),
+    verbose=1,
+    save_best_only=False,
+    save_freq=save_freq) 
 	
 	# tensorboard info
 	tb = TensorBoard(log_dir=model_dir)
 
 	# ------------------------------------------------- # 
 
-
-	# PREPARE DATASET
-	dataset = DataSet(cnn_model, seq_length)
-	
-	# steps_per_epoch = number of batches in one epoch
-	steps_per_epoch = (len(dataset.data) * train_size) // batch_size
-
 	# create train and validation generators
 	generator = dataset.frame_generator(batch_size, 'train')
 	# val_generator = dataset.frame_generator(batch_size, 'validation') # use all validation data each time?
 	(X_val, y_val) = dataset.generate_data('validation')
+
+	print(f"\n[DEBUG] Validation data shapes - X: {X_val.shape}, y: {y_val.shape}\n")  # Critical check
 
 	# load or create model
 	if saved_model:
@@ -115,7 +124,13 @@ def train(model_dir, cnn_model, saved_model=None,
 						seq_length=seq_length, num_classes=num_classes)
 	
 	# setup optimizer: ADAM algorithm
-	optimizer = Adam(lr=learning_rate, decay=decay)
+
+	lr_schedule = ExponentialDecay(
+    initial_learning_rate=learning_rate,
+    decay_steps=10000,
+    decay_rate=0.9)
+
+	optimizer = Adam(learning_rate=lr_schedule)
 	
 	# metrics for judging performance of model
 	metrics = ['categorical_accuracy'] # ['accuracy']  # if using 'top_k_categorical_accuracy', must specify k
@@ -126,7 +141,7 @@ def train(model_dir, cnn_model, saved_model=None,
 	print(rnn_model.summary())
 
 	# use fit generator to generate data on the fly
-	history = rnn_model.fit_generator(generator=generator,
+	history = rnn_model.fit(generator,
 									steps_per_epoch=steps_per_epoch,
 									epochs=nb_epoch,
 									verbose=1,

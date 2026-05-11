@@ -5,14 +5,16 @@ to work with our dataset and approach to training an LRCNN model.
 
 """
 
-from keras.applications.inception_v3 import preprocess_input #, InceptionV3
-from keras.preprocessing import image
-from keras.utils import to_categorical
+from tensorflow.keras.applications.inception_v3 import preprocess_input #, InceptionV3
+from tensorflow.keras.preprocessing.image import img_to_array
+from tensorflow.keras.utils import to_categorical
+
 
 import numpy as np
 import cv2
 import random
 import csv
+import tensorflow as tf
 
 import time
 import os
@@ -84,18 +86,16 @@ class DataSet():
 
 
 	def get_classes(self):
-		"""
-		This function creates a list of classes from data_file.csv.
-		NOTE: no class limit applied here, b/c we only have 12 classes to work with.
-		"""
 		classes = []
+		print("=== Inspeccionando los datos ===")
+		for i, item in enumerate(self.data[:5]):  # Ver primeros 5 elementos
+			print(f"Elemento {i}: {item} | Longitud: {len(item)}")
+		
 		for item in self.data:
-			if item[1] not in classes:
-				classes.append(item[1])
-
-		classes = sorted(classes)  # sorted, but prob not necessary
-
-		return classes
+			if len(item) > 1:  # Solo si tiene al menos 2 elementos
+				if item[1] not in classes:
+					classes.append(item[1])
+		return sorted(classes)
 
 
 	def get_class_one_hot(self, class_label):
@@ -136,7 +136,7 @@ class DataSet():
 		# path = os.path.join('data', sample[0], sample[1], sample[2] + ".avi")
 
 		# e.g. "VIDEO_RGB/backhand/p1_backhand_s1.avi"
-		path = os.path.join('VIDEO_RGB', sample[1], sample[2] + '.avi')
+		path = os.path.join('VIDEO_RGB', sample[1], sample[2] + '.mp4')
 		
 		vidcap = cv2.VideoCapture(path)
 		
@@ -175,7 +175,9 @@ class DataSet():
 
 		sequence = []
 		for img in frames:
-			x = image.img_to_array(img)
+			x = img_to_array(img)
+			x = tf.image.resize(x, (480, 640))
+			x = x.numpy().copy()
 			x = np.expand_dims(x, axis=0)
 			x = preprocess_input(x)
 			features = self.cnn_model.predict(x)  # for some reason not on graph?
