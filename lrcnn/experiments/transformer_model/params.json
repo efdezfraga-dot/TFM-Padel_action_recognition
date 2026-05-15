@@ -1,0 +1,14 @@
+{
+  "learning_rate": 0.0001,
+  "decay": 0.000001,
+  "batch_size": 16,
+  "nb_epoch": 100,
+  "train_size": 0.8,
+  "num_classes": 9,
+  "seq_length": 150,
+  "embed_dim": 256,
+  "dense_dim": 512,
+  "num_heads": 4,
+  "dropout_rate": 0.4,
+  "saved_model": "None"
+}

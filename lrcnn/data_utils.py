@@ -8,6 +8,7 @@ to work with our dataset and approach to training an LRCNN model.
 from tensorflow.keras.applications.inception_v3 import preprocess_input #, InceptionV3
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 
 import numpy as np
@@ -246,60 +247,53 @@ class DataSet():
 		"""
 		This function creates a generator that we will use during training.
 		"""
-
-		# random.seed(1)  # for reproducibility in experiments?
-		
-		# not using actual test data, using validation data during training
 		train, validation, _ = self.split_dataset()
 		data = train if train_validate == 'train' else validation
 		
 		print("Creating %s generator with %d samples.\n" % (train_validate, len(data)))
 
-		if train_validate == 'train':
-			while 1:
-				X, y = [], []
-
-				# generate samples for batch (of size batch_size)
+		while 1:
+			X, y = [], []
+			
+			if train_validate == 'train':
+				# ENTRENAMIENTO: Seleccionamos aleatoriamente para crear un lote
 				for _ in range(batch_size):
-
-					sequence = None
-
-					# randomly pick a datapoint (what if we have already picked point in batch?)
 					sample = random.choice(data)
-
 					sequence = self.get_extracted_sequence(sample)
-
+					
 					if sequence is None:
 						raise ValueError("Unable to find sequence!")
-
+						
 					X.append(sequence)
-
-					class_label = sample[1]  # from csv line
+					class_label = sample[1]
 					y.append(self.get_class_one_hot(class_label))
 
-				# yield batches as necessary to fit_generator() fxn
-				yield np.array(X), np.array(y)
-		else:
-			while 1:
-				X, y = [], []
-				for i in range(len(data)):
-
-					sequence = None
-
-					sample = data[i]
-
+				# PADDING: Rellenamos con 0.0 hasta llegar a self.seq_length (150)
+				X_padded = pad_sequences(X, maxlen=self.seq_length, padding='post', dtype='float32', value=0.0)
+				yield np.array(X_padded), np.array(y)
+				
+			else:
+				# VALIDACIÓN: Recorremos los datos de forma secuencial, pero respetando el batch_size
+				for sample in data:
 					sequence = self.get_extracted_sequence(sample)
-
+					
 					if sequence is None:
 						raise ValueError("Unable to find sequence!")
-
+						
 					X.append(sequence)
-
-					class_label = sample[1]  # from csv line
+					class_label = sample[1]
 					y.append(self.get_class_one_hot(class_label))
-
-				# print "yielding entire validation set"
-				yield np.array(X), np.array(y)
+					
+					# Cuando llegamos al tamaño del lote, aplicamos padding y enviamos
+					if len(X) == batch_size:
+						X_padded = pad_sequences(X, maxlen=self.seq_length, padding='post', dtype='float32', value=0.0)
+						yield np.array(X_padded), np.array(y)
+						X, y = [], []  # Vaciamos las listas para el siguiente lote
+				
+				# Si al final de la validación sobran vídeos (menos que el batch_size), los enviamos también
+				if len(X) > 0:
+					X_padded = pad_sequences(X, maxlen=self.seq_length, padding='post', dtype='float32', value=0.0)
+					yield np.array(X_padded), np.array(y)
 
 
 	def generate_data(self, train_validate_test):
@@ -318,19 +312,22 @@ class DataSet():
 
 		# loop over list of validation samples, and create sequences
 		for sample in data:
-
-			sequence = None
-
 			sequence = self.get_extracted_sequence(sample)
 
 			if sequence is None:
-				raise ValueError("Unable to find sequence!")
+				print("No se encontró la secuencia para el sample:", sample)
+				continue  # Mejor saltarlo que hacer un raise ValueError para que no crashee todo
 
 			X.append(sequence)
-
-			class_label = sample[1]  # from csv line
+			class_label = sample[1]  # del csv line
 			y.append(self.get_class_one_hot(class_label))
 
-		# print "yielding entire validation set"
-		return np.array(X), np.array(y)
+		# --- NUEVO: APLICAMOS PADDING A TODO EL CONJUNTO ANTES DE DEVOLVERLO ---
+		from tensorflow.keras.preprocessing.sequence import pad_sequences
+		
+		print(f"Aplicando padding a {len(X)} secuencias...")
+		X_padded = pad_sequences(X, maxlen=self.seq_length, padding='post', dtype='float32', value=0.0)
+
+		# Devolvemos el array ya rellenado a 150 fotogramas
+		return np.array(X_padded), np.array(y)
 
