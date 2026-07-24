@@ -1,5 +1,16 @@
 # Long-term Recurrent Convolutional Neural Network
 
+> **Nota / Note.** Este documento procede del proyecto original
+> [chow-vincent/tennis_action_recognition](https://github.com/chow-vincent/tennis_action_recognition)
+> y describe el flujo de trabajo sobre el dataset de **tenis** THETIS. Las referencias a
+> "our report" y a las clases de tenis (backhand, forehand, service, smash…) son de los
+> autores originales. En este TFM el mismo pipeline se aplica a un **dataset propio de
+> pádel con 9 clases**; ver el [README de la raíz](../README.md) para el contexto y las
+> limitaciones conocidas.
+>
+> *This document comes from the original project and describes the workflow on the THETIS
+> tennis dataset. This fork applies the same pipeline to a custom padel dataset.*
+
 In this directory you will find everything you need to train and evaluate the LRCNN model on the THETIS dataset.
 
 
